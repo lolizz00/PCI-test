@@ -9,6 +9,7 @@
 #include <time.h>
 #include <Windows.h>
 
+/* Матрицы как матрицы */
 typedef struct
 {
 	int width;
@@ -17,6 +18,7 @@ typedef struct
 } Matrix;
 
 
+/*Случайные числа  */
 void randomDouble(double* ptr, int memsize)
 {
 	for (int i = 0;i <  memsize / sizeof(double); i++)
@@ -25,6 +27,7 @@ void randomDouble(double* ptr, int memsize)
 	}
 }
 
+/* Само вычисление на GPU */
 __global__ void MatMulKernel(Matrix A, Matrix B, Matrix C)
 {
 	
@@ -32,15 +35,21 @@ __global__ void MatMulKernel(Matrix A, Matrix B, Matrix C)
 	int row = blockIdx.y * blockDim.y + threadIdx.y;
 	int col = blockIdx.x * blockDim.x + threadIdx.x;
 
-	if (row > A.height || col > B.width) 	{		return;	}	for (int e = 0; e < A.width; ++e)
+	if (row > A.height || col > B.width) 
+	{
+		return;
+	}
+	for (int e = 0; e < A.width; ++e)
 	{
 		Cvalue += (A.elements[row * A.width + e]) * (B.elements[e * B.width + col]);
 	}
 
 	C.elements[row * C.width + col] = Cvalue;
-}
+}
 
-
+
+
+
 unsigned status;
 
 
@@ -49,6 +58,7 @@ unsigned status;
 int main()
 {
 
+	/* Ищем все устройства, которые можно грузить */
 	printf("CUDA devices:\n");
 	int nDevices = 0;
 	cudaGetDeviceCount(&nDevices);
@@ -68,6 +78,7 @@ int main()
 		printf("\tPCI device ID of the device: %d", prop.pciDeviceID);
 	}
 
+	/* Выбираем нужное */
 
 	while (1)
 	{
@@ -91,10 +102,10 @@ int main()
 	int size;
 	int mem_size;
 	
-
+	/* Размер матрицы, которая будет считаться */
 	while (1)
 	{
-		printf("Enter matrix size: ");
+		printf("Enter matrix size for mul: ");
 		scanf("%d", &size);
 
 		if (size <= 2)
@@ -121,7 +132,7 @@ int main()
 	C.width = size; C.height = size;
 	HOST.width = size; HOST.height = size;
 
-
+	/* Выделили память */
 	status |= (unsigned)cudaMalloc(&A.elements, mem_size);
 	status |= (unsigned)cudaMalloc(&B.elements, mem_size);
 	status |= (unsigned)cudaMalloc(&C.elements, mem_size);
@@ -167,19 +178,24 @@ int main()
 
 		unsigned tm = clock();
 
+		/* Гоняем данные туда-сюда */
 		cudaMemcpy(A.elements, HOST.elements, mem_size, cudaMemcpyHostToDevice);
 		cudaMemcpy(A.elements, HOST.elements, mem_size, cudaMemcpyHostToDevice);
+
+		/* Считаем матрицы, что бы грелась ГПУ */
 		MatMulKernel << <size, size >> >(A, B, C);
 		cudaMemcpy(HOST.elements, C.elements, mem_size, cudaMemcpyDeviceToHost);
 
 
 		tm = clock() - tm;
 
-
+		/* Выводим время */
 		printf("Runtime: %u ms\n", tm);
 
 
 	}
+
+	/* Память чистить лень, тут можно обойтись и без этого */
 
 	printf("\n");
 	system("pause");
